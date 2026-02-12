@@ -2,6 +2,8 @@
 
 Container Docker para deploy simplificado de [Python Scoring Pipelines](https://docs.h2o.ai/driverless-ai/1-10-lts/docs/userguide/scoring-standalone-python.html) do H2O Driverless AI.
 
+**Versão do Driverless AI:** 1.10 LTS
+
 ## Problema
 
 Cada scoring pipeline exportada pelo Driverless AI vem como um `.zip` com centenas de dependências Python que precisam ser instaladas antes de rodar o modelo. Esse processo de instalação leva vários minutos e precisa ser repetido para cada novo modelo — mesmo que as dependências sejam idênticas entre pipelines.

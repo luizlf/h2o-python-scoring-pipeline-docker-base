@@ -9,8 +9,7 @@ RUN dnf install -y \
         python38 \
         python38-devel \
         python38-pip \
-        openblas-devel \
-        ocl-icd \
+        openblas \
         unzip \
         gcc \
         gcc-c++ \
