@@ -54,12 +54,22 @@ $PYTHON -m pip install --upgrade --upgrade-strategy only-if-needed \
 grep -v 'scoring_h2oai_experiment' requirements.txt \
     | grep -v 'xgboost-' | grep -v 'xgboost==' \
     | grep -v 'lightgbm-' | grep -v 'lightgbm=' \
+    | grep -v 'cupy-cuda' \
+    | grep -v 'torch==' | grep -v 'torchvision==' | grep -v 'torchaudio==' \
     > /tmp/requirements_filtered.txt
 
 $PYTHON -m pip install --use-deprecated=legacy-resolver \
     --upgrade --upgrade-strategy only-if-needed \
     -r /tmp/requirements_filtered.txt \
     -c req_constraints_deps.txt \
+    -f https://download.pytorch.org/whl/torch_stable.html
+
+# --------------------------------------------------------------------------
+# Install PyTorch CPU-only (much smaller than the CUDA build)
+# --------------------------------------------------------------------------
+$PYTHON -m pip install --use-deprecated=legacy-resolver \
+    --upgrade --upgrade-strategy only-if-needed \
+    torch==1.13.1+cpu torchvision==0.14.1+cpu \
     -f https://download.pytorch.org/whl/torch_stable.html
 
 # --------------------------------------------------------------------------

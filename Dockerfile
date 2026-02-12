@@ -27,7 +27,7 @@ COPY install_dependencies.sh /scoring/install_dependencies.sh
 
 RUN chmod +x /scoring/install_dependencies.sh \
     && bash /scoring/install_dependencies.sh \
-    && rm -rf /scoring/reference-pipeline /scoring/env_app_data_dir /tmp/*
+    && rm -rf /scoring/reference-pipeline /scoring/env_app_data_dir /tmp/* /root/.cache/pip
 
 # --------------------------------------------------------------------------
 # Runtime scripts
