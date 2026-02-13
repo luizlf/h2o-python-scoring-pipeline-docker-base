@@ -13,6 +13,7 @@ set -x
 PIPELINE_DIR="/scoring/reference-pipeline"
 ENV_DIR="/scoring/env"
 PYTORCH_WHEEL_URL="${PYTORCH_WHEEL_URL:-https://download.pytorch.org/whl/torch_stable.html}"
+INSTALL_TCP_SERVER_DEPS="${INSTALL_TCP_SERVER_DEPS:-0}"
 
 cd "$PIPELINE_DIR"
 
@@ -39,7 +40,6 @@ unset PYTHONUSERBASE
 # Install base pip tooling
 # --------------------------------------------------------------------------
 python -m ensurepip
-python -m pip install pip==21.1
 
 PYTHON="$(realpath "$ENV_DIR/bin/python")"
 spackagespath="$($PYTHON -c "from sysconfig import get_paths; info = get_paths(); print(info['purelib'])")"
@@ -50,10 +50,9 @@ $PYTHON -m pip install --upgrade --upgrade-strategy only-if-needed \
     -c req_constraints_deps.txt
 
 # --------------------------------------------------------------------------
-# Install PyTorch CPU-only FIRST (prevents transitive deps from pulling CUDA)
+# Install CPU torch stack without transitive deps to avoid early churn
 # --------------------------------------------------------------------------
-$PYTHON -m pip install --use-deprecated=legacy-resolver \
-    --upgrade --upgrade-strategy only-if-needed \
+$PYTHON -m pip install --use-deprecated=legacy-resolver --no-deps \
     torch==1.13.1+cpu torchvision==0.14.1+cpu \
     -f "$PYTORCH_WHEEL_URL"
 
@@ -63,18 +62,29 @@ $PYTHON -m pip install --use-deprecated=legacy-resolver \
 grep -v 'scoring_h2oai_experiment' requirements.txt \
     | grep -v 'xgboost-' | grep -v 'xgboost==' \
     | grep -v 'lightgbm-' | grep -v 'lightgbm=' \
+    | grep -v 'h2o4gpu' \
     | grep -v 'cupy-cuda' \
+    | grep -v '^pyarrow==' \
     | grep -v 'torch==' | grep -v 'torchvision==' | grep -v 'torchaudio==' \
     | grep -v '^torch-' | grep -v '^torchvision-' | grep -v '^torchaudio-' \
+    | awk '!seen[$0]++' \
     > /tmp/requirements_filtered.txt
 
-# Strip CUDA torch pins from constraints so pip doesn't try to resolve them
-grep -v 'torch' req_constraints_deps.txt > /tmp/constraints_filtered.txt
+# Strip incompatible constraints and then add explicit runtime-target overrides
+grep -vE '^torch==|^torchvision==|^torchaudio==|^pyarrow==' \
+    req_constraints_deps.txt > /tmp/constraints_filtered.txt
+cat <<'EOF' > /tmp/constraints_overrides.txt
+pyarrow==3.0.0
+tensorboard==2.4.1
+tensorflow==2.4.4
+tensorflow-estimator==2.4.0
+torchaudio==0.13.1
+EOF
+cat /tmp/constraints_overrides.txt >> /tmp/constraints_filtered.txt
 
 # NOTE: do NOT pass -f PYTORCH_WHEEL_URL here — it would let pip resolve
 # transitive torch deps to the CUDA build, overriding our CPU-only install.
 $PYTHON -m pip install --use-deprecated=legacy-resolver \
-    --upgrade --upgrade-strategy only-if-needed \
     -r /tmp/requirements_filtered.txt \
     -c /tmp/constraints_filtered.txt
 
@@ -85,29 +95,29 @@ mv "$spackagespath/xgboost" "$spackagespath/xgboost_h2o4gpu" 2>/dev/null || true
 mv "$spackagespath/lightgbm_gpu" "$spackagespath/lightgbm_gpu_h2o4gpu" 2>/dev/null || true
 mv "$spackagespath/lightgbm_cpu" "$spackagespath/lightgbm_cpu_h2o4gpu" 2>/dev/null || true
 
-grep 'xgboost-\|lightgbm-' requirements.txt > /tmp/requirements_xgb_lgb.txt || true
+grep 'xgboost-\|lightgbm-' requirements.txt \
+    | awk '!seen[$0]++' \
+    > /tmp/requirements_xgb_lgb.txt || true
 if [ -s /tmp/requirements_xgb_lgb.txt ]; then
-    $PYTHON -m pip install --use-deprecated=legacy-resolver \
-        --upgrade --upgrade-strategy only-if-needed \
+    $PYTHON -m pip install --use-deprecated=legacy-resolver --no-deps \
         -r /tmp/requirements_xgb_lgb.txt \
-        -c req_constraints_deps.txt \
-        -f "$PYTORCH_WHEEL_URL"
+        -c /tmp/constraints_filtered.txt
 fi
 
 # --------------------------------------------------------------------------
 # Install CPU tensorflow (non-GPU deployment)
 # --------------------------------------------------------------------------
-$PYTHON -m pip uninstall -y tensorflow tensorflow-gpu nvidia-tensorflow 2>/dev/null || true
+$PYTHON -m pip uninstall -y tensorflow-gpu nvidia-tensorflow 2>/dev/null || true
 
 $PYTHON -m pip install --use-deprecated=legacy-resolver \
-    tensorflow==2.4.4 --upgrade --upgrade-strategy only-if-needed \
-    -c req_constraints_deps.txt
+    tensorflow==2.4.4 \
+    -c /tmp/constraints_filtered.txt
 $PYTHON -m pip install --use-deprecated=legacy-resolver \
-    tensorflow-estimator==2.4.0 --upgrade --upgrade-strategy only-if-needed \
-    -c req_constraints_deps.txt
+    tensorflow-estimator==2.4.0 \
+    -c /tmp/constraints_filtered.txt
 $PYTHON -m pip install --use-deprecated=legacy-resolver \
-    tensorboard==2.4.1 --upgrade --upgrade-strategy only-if-needed \
-    -c req_constraints_deps.txt
+    tensorboard==2.4.1 \
+    -c /tmp/constraints_filtered.txt
 
 # Rename tensorflow directories for DAI's dynamic loading system
 tf_path="$spackagespath/tensorflow"
@@ -146,28 +156,28 @@ fi
 # Install pyarrow (with ORC support for pip-based installs)
 # --------------------------------------------------------------------------
 $PYTHON -m pip install --use-deprecated=legacy-resolver \
-    --no-deps --no-cache-dir --upgrade --upgrade-strategy only-if-needed \
+    --no-deps --no-cache-dir \
     pyarrow==3.0.0
 
 # --------------------------------------------------------------------------
 # Install HTTP and TCP server dependencies
 # --------------------------------------------------------------------------
 $PYTHON -m pip install --use-deprecated=legacy-resolver \
-    --upgrade --upgrade-strategy only-if-needed \
     -r http_server_requirements.txt \
-    -c req_constraints_deps.txt \
-    -f "$PYTORCH_WHEEL_URL"
+    -c /tmp/constraints_filtered.txt
 
-$PYTHON -m pip install --use-deprecated=legacy-resolver \
-    --upgrade --upgrade-strategy only-if-needed \
-    -r tcp_server_requirements.txt \
-    -c req_constraints_deps.txt \
-    -f "$PYTORCH_WHEEL_URL"
+if [ "$INSTALL_TCP_SERVER_DEPS" = "1" ]; then
+    $PYTHON -m pip install --use-deprecated=legacy-resolver \
+        -r tcp_server_requirements.txt \
+        -c /tmp/constraints_filtered.txt
+fi
 
 # --------------------------------------------------------------------------
 # Cleanup: remove packages not needed for CPU-only scoring
 # --------------------------------------------------------------------------
-rm -f /tmp/requirements_filtered.txt /tmp/requirements_xgb_lgb.txt
+rm -f /tmp/requirements_filtered.txt /tmp/requirements_xgb_lgb.txt \
+    /tmp/constraints_filtered.txt /tmp/constraints_overrides.txt
+rm -rf "${HOME:-/root}/.cache/pip" /root/.cache/pip
 
 SP64="$ENV_DIR/lib64/python3.8/site-packages"
 SP="$ENV_DIR/lib/python3.8/site-packages"

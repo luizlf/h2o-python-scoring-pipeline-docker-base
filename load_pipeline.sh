@@ -21,19 +21,32 @@ PIPELINE_DIR="/scoring/pipeline"
 rm -rf "$PIPELINE_DIR" /tmp/pipeline_extract
 mkdir -p /tmp/pipeline_extract
 
-echo "Extracting pipeline from $PIPELINE_ZIP..."
-unzip -o "$PIPELINE_ZIP" -d /tmp/pipeline_extract
-
 # The zip may contain files directly or inside a subdirectory.
-# Find the scoring whl to locate the actual pipeline root.
-SCORING_WHL="$(find /tmp/pipeline_extract -name 'scoring_h2oai_experiment*.whl' -print -quit)"
-if [ -z "$SCORING_WHL" ]; then
+# Find the scoring wheel entry first, then extract only that subtree.
+SCORING_WHL_ENTRY="$(zipinfo -1 "$PIPELINE_ZIP" \
+    | tr -d '\r' \
+    | grep -m1 -E '(^|/)scoring_h2oai_experiment[^/]*\.whl$' || true)"
+if [ -z "$SCORING_WHL_ENTRY" ]; then
     echo "Error: No scoring_h2oai_experiment*.whl found in the archive."
     exit 1
 fi
-EXTRACTED_DIR="$(dirname "$SCORING_WHL")"
 
-mv "$EXTRACTED_DIR" "$PIPELINE_DIR"
+EXTRACTED_DIR_REL="$(dirname "$SCORING_WHL_ENTRY")"
+echo "Extracting pipeline from $PIPELINE_ZIP..."
+if [ "$EXTRACTED_DIR_REL" = "." ]; then
+    mkdir -p "$PIPELINE_DIR"
+    # Extract all non-wheel files from archive root.
+    unzip -o "$PIPELINE_ZIP" -d "$PIPELINE_DIR" -x '*.whl'
+    # Extract only the scoring wheel.
+    unzip -o "$PIPELINE_ZIP" "$SCORING_WHL_ENTRY" -d "$PIPELINE_DIR"
+else
+    # Extract only non-wheel files from the detected pipeline subtree.
+    unzip -o "$PIPELINE_ZIP" "$EXTRACTED_DIR_REL/*" -d /tmp/pipeline_extract -x '*.whl'
+    # Extract only the scoring wheel from that subtree.
+    unzip -o "$PIPELINE_ZIP" "$SCORING_WHL_ENTRY" -d /tmp/pipeline_extract
+    mv "/tmp/pipeline_extract/$EXTRACTED_DIR_REL" "$PIPELINE_DIR"
+fi
+
 rm -rf /tmp/pipeline_extract
 
 # --------------------------------------------------------------------------
