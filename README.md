@@ -205,7 +205,16 @@ docker run -p 9090:9090 \
 
 ## Otimizações de tamanho
 
-A imagem inclui diversas otimizações para reduzir o tamanho (~8.8 GB em disco, ~2.1 GB comprimida):
+A imagem inclui diversas otimizações para reduzir o tamanho.
+
+Medições atuais da imagem otimizada (`opt-slim1`):
+
+- **Tamanho local (Docker `image ls`)**: `8.01 GB`
+- **Tamanho exato (Docker `image inspect`)**: `1,900,317,915 bytes`
+- **Tamanho comprimido para registry (`docker save | gzip`)**: `1,883,380,723 bytes` (~`1.88 GB`)
+- **Redução vs baseline local (`local`)**:
+  - local: `2,099,933,140 bytes` → otimizada: `1,900,317,915 bytes` (`-9.51%`)
+  - comprimida: `2,082,404,094 bytes` → otimizada: `1,883,380,723 bytes` (`-9.56%`)
 
 - **PyTorch CPU-only**: instala `torch+cpu` em vez da versão CUDA (~2.5 GB economizados)
 - **Bind mount no build**: a pipeline de referência é montada via `--mount=type=bind` durante o build, evitando que seus ~1.2 GB fiquem em uma layer do Docker
