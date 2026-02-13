@@ -221,6 +221,14 @@ find "$SP" "$SP64" -maxdepth 1 -name '*.dist-info' \( \
     -o -name 'botocore*' -o -name 'babel*' \
     \) -exec rm -rf {} + 2>/dev/null || true
 
+# Remove Python bytecode caches and package test suites.
+find "$ENV_DIR/lib" "$ENV_DIR/lib64" -type d -name '__pycache__' \
+    -exec rm -rf {} + 2>/dev/null || true
+find "$ENV_DIR/lib" "$ENV_DIR/lib64" -type f \( -name '*.pyc' -o -name '*.pyo' \) \
+    -delete 2>/dev/null || true
+find "$SP" "$SP64" -type d \( -name test -o -name tests \) \
+    -exec rm -rf {} + 2>/dev/null || true
+
 deactivate
 
 echo "=== All shared dependencies installed successfully ==="

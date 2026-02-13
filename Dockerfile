@@ -68,8 +68,9 @@ ARG EPEL_RPM_URL
 # Runtime-only system dependencies (no compiler toolchain)
 # --------------------------------------------------------------------------
 RUN dnf install -y \
+        --setopt=install_weak_deps=False \
         "${EPEL_RPM_URL}" \
-    && dnf install -y --enablerepo=epel \
+    && dnf install -y --setopt=install_weak_deps=False --enablerepo=epel \
         python38 \
         openblas \
         libgomp \
