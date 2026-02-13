@@ -157,9 +157,52 @@ $PYTHON -m pip install --use-deprecated=legacy-resolver \
     -f https://download.pytorch.org/whl/torch_stable.html
 
 # --------------------------------------------------------------------------
-# Cleanup
+# Cleanup: remove packages not needed for CPU-only scoring
 # --------------------------------------------------------------------------
 rm -f /tmp/requirements_filtered.txt /tmp/requirements_xgb_lgb.txt
+
+SP64="$ENV_DIR/lib64/python3.8/site-packages"
+SP="$ENV_DIR/lib/python3.8/site-packages"
+
+# xgboost duplicates (leftover h2o4gpu copies)
+rm -rf "$SP/xgboost_h2o4gpu" "$SP/xgboost_prev"
+
+# lightgbm duplicates
+rm -rf "$SP/lightgbm_gpu_h2o4gpu" "$SP/lightgbm_cpu_h2o4gpu"
+
+# GPU artifacts (not needed for CPU scoring)
+rm -rf "$SP/_ch2o4gpu_gpu.so" "$SP64/cupy" "$SP64/cupy_backends" "$SP/h2o4gpu"
+
+# H2O-3 client (not needed when recipes are disabled)
+rm -rf "$SP/h2o"
+
+# Visualization libs (not needed for scoring server)
+rm -rf "$SP/plotly" "$SP/bokeh" "$SP/panel" "$SP/datashader" \
+       "$SP/pydeck" "$SP/altair" "$SP/jupyterlab_plotly"
+
+# Build tools / dev utilities
+rm -rf "$SP64/cmake"
+
+# Tensorboard (not needed for scoring)
+rm -rf "$SP/tensorboard" "$SP/tensorboard_dai" \
+       "$SP/tensorboard_data_server" "$SP/tensorboard_plugin_wit"
+
+# AWS SDK / i18n (not needed for scoring)
+rm -rf "$SP/botocore" "$SP/babel"
+
+# Clean up dist-info for removed packages
+find "$SP" "$SP64" -maxdepth 1 -name '*.dist-info' \( \
+    -name 'xgboost_h2o4gpu*' -o -name 'xgboost_prev*' \
+    -o -name 'lightgbm_gpu_h2o4gpu*' -o -name 'lightgbm_cpu_h2o4gpu*' \
+    -o -name 'cupy*' -o -name 'h2o4gpu*' \
+    -o -name 'h2o-*' \
+    -o -name 'plotly*' -o -name 'bokeh*' -o -name 'panel*' -o -name 'datashader*' \
+    -o -name 'pydeck*' -o -name 'altair*' -o -name 'jupyterlab*plotly*' \
+    -o -name 'cmake*' \
+    -o -name 'tensorboard*' \
+    -o -name 'botocore*' -o -name 'babel*' \
+    \) -exec rm -rf {} + 2>/dev/null || true
+
 deactivate
 
 echo "=== All shared dependencies installed successfully ==="

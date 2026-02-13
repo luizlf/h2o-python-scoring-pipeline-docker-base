@@ -59,6 +59,11 @@ export TMPDIR="/tmp/dai_tmp"
 export TMP_DIR="$TMPDIR"
 mkdir -p "$TMPDIR"
 
+# Disable H2O-3 recipe server (requires Java, not needed for scoring)
+export DRIVERLESS_AI_ENABLE_H2O_RECIPES="${DRIVERLESS_AI_ENABLE_H2O_RECIPES:-0}"
+export dai_enable_h2o_recipes="${dai_enable_h2o_recipes:-0}"
+export dai_enable_custom_recipes="${dai_enable_custom_recipes:-0}"
+
 PYTHON="$(realpath "$ENV_DIR/bin/python")"
 LD_LIBRARY_PATH="$($PYTHON -c "from sysconfig import get_paths; import os; info = get_paths(); print(os.path.dirname(info['stdlib']))")":${LD_LIBRARY_PATH:-}
 export LD_LIBRARY_PATH

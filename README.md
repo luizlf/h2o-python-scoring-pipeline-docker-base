@@ -95,11 +95,14 @@ O servidor HTTP estará disponível em `http://localhost:9090`.
 
 ### Variáveis de ambiente
 
-| Variável | Descrição |
-|---|---|
-| `DRIVERLESS_AI_LICENSE_KEY` | Chave de licença do DAI (string em Base64) |
-| `DRIVERLESS_AI_LICENSE_FILE` | Caminho para o arquivo de licença (alternativa à chave) |
-| `SCORING_PORT` | Porta do servidor HTTP (padrão: `9090`) |
+| Variável | Descrição | Padrão |
+|---|---|---|
+| `DRIVERLESS_AI_LICENSE_KEY` | Chave de licença do DAI (string em Base64) | — |
+| `DRIVERLESS_AI_LICENSE_FILE` | Caminho para o arquivo de licença (alternativa à chave) | — |
+| `SCORING_PORT` | Porta do servidor HTTP | `9090` |
+| `DRIVERLESS_AI_ENABLE_H2O_RECIPES` | Habilitar servidor H2O-3 para receitas | `0` |
+| `dai_enable_h2o_recipes` | Habilitar receitas H2O-3 (config interna do DAI) | `0` |
+| `dai_enable_custom_recipes` | Habilitar receitas customizadas | `0` |
 
 ### Exemplo: scoring via HTTP
 
@@ -143,9 +146,25 @@ docker run -p 9090:9090 \
 | `entrypoint.sh` | Entrypoint do container. Coordena o carregamento da pipeline e inicia o servidor HTTP |
 | `scoring-pipeline/` | Pipeline de referência (não versionada — veja [Build da imagem](#build-da-imagem)) |
 
+## Limitações
+
+- **Sem suporte a GPU**: imagem configurada para deploy CPU-only. PyTorch e TensorFlow são as versões CPU.
+- **Sem suporte a receitas H2O-3**: o servidor H2O-3 para receitas customizadas é desabilitado por padrão (requer Java, que não está instalado na imagem). Pipelines que dependem de receitas H2O-3 customizadas **não funcionarão**.
+- **Pacotes removidos para redução de tamanho**: bibliotecas de visualização (plotly, bokeh, panel), GPU (cupy, h2o4gpu), H2O-3 client, tensorboard e cmake foram removidos. Se a sua pipeline depender de algum desses pacotes, será necessário ajustar o `install_dependencies.sh`.
+
+## Otimizações de tamanho
+
+A imagem inclui diversas otimizações para reduzir o tamanho (~8.8 GB em disco, ~2.1 GB comprimida):
+
+- **PyTorch CPU-only**: instala `torch+cpu` em vez da versão CUDA (~2.5 GB economizados)
+- **Bind mount no build**: a pipeline de referência é montada via `--mount=type=bind` durante o build, evitando que seus ~1.2 GB fiquem em uma layer do Docker
+- **Remoção de pacotes GPU**: cupy-cuda, h2o4gpu, duplicatas de xgboost/lightgbm
+- **Remoção de pacotes não essenciais**: bibliotecas de visualização, tensorboard, cmake, botocore, babel
+- **Limpeza de .whl no runtime**: `load_pipeline.sh` remove os `.whl` de dependências após extrair a pipeline, mantendo apenas o `.whl` do modelo
+- **Limpeza de cache**: pip cache e arquivos temporários são removidos no mesmo layer do build
+
 ## Observações
 
-- Esta imagem é configurada para deploy **sem GPU** (CPU only). O TensorFlow instalado é a versão CPU.
 - A imagem base é a `registry.access.redhat.com/ubi8/ubi` (Red Hat Universal Base Image 8), que não requer subscription para uso.
 - O startup do container não requer acesso à internet — todas as dependências já estão na imagem.
 - Todas as scoring pipelines exportadas pela **mesma versão** do Driverless AI compartilham as mesmas dependências. Se você atualizar o DAI, reconstrua a imagem com uma pipeline de referência da nova versão.

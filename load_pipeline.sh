@@ -49,4 +49,10 @@ $PYTHON -m pip install --no-deps scoring_h2oai_experiment*.whl
 
 deactivate
 
+# --------------------------------------------------------------------------
+# Cleanup: remove all .whl files except the scoring model
+# --------------------------------------------------------------------------
+echo "Cleaning up .whl files..."
+find "$PIPELINE_DIR" -name '*.whl' ! -name 'scoring_h2oai_experiment*' -delete
+
 echo "=== Pipeline loaded successfully ==="

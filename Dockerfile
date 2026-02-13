@@ -22,12 +22,11 @@ WORKDIR /scoring
 # --------------------------------------------------------------------------
 # Pre-install all shared DAI scoring pipeline dependencies
 # --------------------------------------------------------------------------
-COPY scoring-pipeline/ /scoring/reference-pipeline/
-COPY install_dependencies.sh /scoring/install_dependencies.sh
-
-RUN chmod +x /scoring/install_dependencies.sh \
-    && bash /scoring/install_dependencies.sh \
-    && rm -rf /scoring/reference-pipeline /scoring/env_app_data_dir /tmp/* /root/.cache/pip
+# Use bind mounts so the reference pipeline is never written to a layer
+RUN --mount=type=bind,source=scoring-pipeline,target=/scoring/reference-pipeline \
+    --mount=type=bind,source=install_dependencies.sh,target=/scoring/install_dependencies.sh \
+    bash /scoring/install_dependencies.sh \
+    && rm -rf /scoring/env_app_data_dir /tmp/* /root/.cache/pip
 
 # --------------------------------------------------------------------------
 # Runtime scripts
