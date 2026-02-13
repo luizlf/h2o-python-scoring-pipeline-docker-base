@@ -44,8 +44,16 @@ cd "$PIPELINE_DIR"
 source "$ENV_DIR/bin/activate"
 PYTHON="$(realpath "$ENV_DIR/bin/python")"
 
-echo "Installing scoring module..."
-$PYTHON -m pip install --no-deps scoring_h2oai_experiment*.whl
+SCORING_WHL_FILE=$(ls scoring_h2oai_experiment*.whl)
+MODULE_NAME=$(basename "$SCORING_WHL_FILE" | sed 's/-[0-9].*//')
+
+echo "Installing scoring module ($MODULE_NAME)..."
+$PYTHON -m pip install --no-deps "$SCORING_WHL_FILE"
+
+if ! $PYTHON -c "import $MODULE_NAME" 2>/dev/null; then
+    echo "Error: $MODULE_NAME failed to import after installation."
+    exit 1
+fi
 
 deactivate
 

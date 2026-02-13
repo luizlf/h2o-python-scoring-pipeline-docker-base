@@ -50,6 +50,14 @@ $PYTHON -m pip install --upgrade --upgrade-strategy only-if-needed \
     -c req_constraints_deps.txt
 
 # --------------------------------------------------------------------------
+# Install PyTorch CPU-only FIRST (prevents transitive deps from pulling CUDA)
+# --------------------------------------------------------------------------
+$PYTHON -m pip install --use-deprecated=legacy-resolver \
+    --upgrade --upgrade-strategy only-if-needed \
+    torch==1.13.1+cpu torchvision==0.14.1+cpu \
+    -f "$PYTORCH_WHEEL_URL"
+
+# --------------------------------------------------------------------------
 # Install main requirements (excluding scoring whl, xgboost, lightgbm)
 # --------------------------------------------------------------------------
 grep -v 'scoring_h2oai_experiment' requirements.txt \
@@ -57,21 +65,18 @@ grep -v 'scoring_h2oai_experiment' requirements.txt \
     | grep -v 'lightgbm-' | grep -v 'lightgbm=' \
     | grep -v 'cupy-cuda' \
     | grep -v 'torch==' | grep -v 'torchvision==' | grep -v 'torchaudio==' \
+    | grep -v '^torch-' | grep -v '^torchvision-' | grep -v '^torchaudio-' \
     > /tmp/requirements_filtered.txt
 
+# Strip CUDA torch pins from constraints so pip doesn't try to resolve them
+grep -v 'torch' req_constraints_deps.txt > /tmp/constraints_filtered.txt
+
+# NOTE: do NOT pass -f PYTORCH_WHEEL_URL here — it would let pip resolve
+# transitive torch deps to the CUDA build, overriding our CPU-only install.
 $PYTHON -m pip install --use-deprecated=legacy-resolver \
     --upgrade --upgrade-strategy only-if-needed \
     -r /tmp/requirements_filtered.txt \
-    -c req_constraints_deps.txt \
-    -f "$PYTORCH_WHEEL_URL"
-
-# --------------------------------------------------------------------------
-# Install PyTorch CPU-only (much smaller than the CUDA build)
-# --------------------------------------------------------------------------
-$PYTHON -m pip install --use-deprecated=legacy-resolver \
-    --upgrade --upgrade-strategy only-if-needed \
-    torch==1.13.1+cpu torchvision==0.14.1+cpu \
-    -f "$PYTORCH_WHEEL_URL"
+    -c /tmp/constraints_filtered.txt
 
 # --------------------------------------------------------------------------
 # Handle xgboost / lightgbm: move h2o4gpu copies, then install proper versions
@@ -128,9 +133,11 @@ if [ -d "$tf_path" ]; then
     for dir_to_fix in tensorflow tensorflow_cpu; do
         target="$spackagespath/$dir_to_fix/python/ops/array_ops.py"
         if [ -f "$target" ]; then
-            sed -i '/from tensorflow.python.ops import math_ops/d' "$target"
-            sed -i 's|from tensorflow.python.ops import gen_math_ops|from tensorflow.python.ops import gen_math_ops\nfrom tensorflow.python.ops import math_ops|g' "$target"
-            sed -i 's|if np.prod(shape) < 1000:|if math_ops.reduce_prod(shape) < 1000:|g' "$target"
+            sed -i \
+                -e '/from tensorflow.python.ops import math_ops/d' \
+                -e 's|from tensorflow.python.ops import gen_math_ops|from tensorflow.python.ops import gen_math_ops\nfrom tensorflow.python.ops import math_ops|g' \
+                -e 's|if np.prod(shape) < 1000:|if math_ops.reduce_prod(shape) < 1000:|g' \
+                "$target"
         fi
     done
 fi

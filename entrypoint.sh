@@ -9,7 +9,7 @@
 #   docker run -p 9090:9090 \
 #       -e DRIVERLESS_AI_LICENSE_KEY="<key>" \
 #       -v /path/to/pipeline.zip:/scoring/pipeline.zip \
-#       dai-scorer
+#       h2o-python-scoring-pipeline-docker-base
 #
 # Environment variables:
 #   DRIVERLESS_AI_LICENSE_KEY   DAI license key (base64)
@@ -65,7 +65,7 @@ export dai_enable_h2o_recipes="${dai_enable_h2o_recipes:-0}"
 export dai_enable_custom_recipes="${dai_enable_custom_recipes:-0}"
 
 PYTHON="$(realpath "$ENV_DIR/bin/python")"
-LD_LIBRARY_PATH="$($PYTHON -c "from sysconfig import get_paths; import os; info = get_paths(); print(os.path.dirname(info['stdlib']))")":${LD_LIBRARY_PATH:-}
+LD_LIBRARY_PATH="$($PYTHON -c "from sysconfig import get_paths; import os; info = get_paths(); print(os.path.dirname(info['stdlib']))")"${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
 export LD_LIBRARY_PATH
 
 echo "Starting HTTP scoring server on port $SCORING_PORT..."

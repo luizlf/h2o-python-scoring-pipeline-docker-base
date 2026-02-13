@@ -2,3 +2,4 @@ scoring-pipeline/
 license.sig
 certs/*.crt
 certs/*.pem
+*.zip

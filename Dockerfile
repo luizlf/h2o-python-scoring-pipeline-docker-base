@@ -17,8 +17,8 @@ ARG EPEL_RPM_URL="https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.no
 # --------------------------------------------------------------------------
 COPY certs/ /tmp/custom-certs/
 RUN if find /tmp/custom-certs -name '*.crt' -o -name '*.pem' 2>/dev/null | grep -q .; then \
-        cp /tmp/custom-certs/*.crt /tmp/custom-certs/*.pem \
-           /etc/pki/ca-trust/source/anchors/ 2>/dev/null; \
+        find /tmp/custom-certs \( -name '*.crt' -o -name '*.pem' \) \
+            -exec cp {} /etc/pki/ca-trust/source/anchors/ \; ; \
         update-ca-trust extract; \
         echo "Custom CA certificates installed"; \
     fi \
@@ -28,7 +28,7 @@ RUN if find /tmp/custom-certs -name '*.crt' -o -name '*.pem' 2>/dev/null | grep 
 # System dependencies (RHEL 8 / UBI 8)
 # --------------------------------------------------------------------------
 RUN dnf install -y \
-        ${EPEL_RPM_URL} \
+        "${EPEL_RPM_URL}" \
     && dnf install -y --enablerepo=epel \
         python38 \
         python38-devel \
