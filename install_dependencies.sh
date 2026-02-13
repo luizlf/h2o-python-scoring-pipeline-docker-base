@@ -12,6 +12,7 @@ set -x
 
 PIPELINE_DIR="/scoring/reference-pipeline"
 ENV_DIR="/scoring/env"
+PYTORCH_WHEEL_URL="${PYTORCH_WHEEL_URL:-https://download.pytorch.org/whl/torch_stable.html}"
 
 cd "$PIPELINE_DIR"
 
@@ -62,7 +63,7 @@ $PYTHON -m pip install --use-deprecated=legacy-resolver \
     --upgrade --upgrade-strategy only-if-needed \
     -r /tmp/requirements_filtered.txt \
     -c req_constraints_deps.txt \
-    -f https://download.pytorch.org/whl/torch_stable.html
+    -f "$PYTORCH_WHEEL_URL"
 
 # --------------------------------------------------------------------------
 # Install PyTorch CPU-only (much smaller than the CUDA build)
@@ -70,7 +71,7 @@ $PYTHON -m pip install --use-deprecated=legacy-resolver \
 $PYTHON -m pip install --use-deprecated=legacy-resolver \
     --upgrade --upgrade-strategy only-if-needed \
     torch==1.13.1+cpu torchvision==0.14.1+cpu \
-    -f https://download.pytorch.org/whl/torch_stable.html
+    -f "$PYTORCH_WHEEL_URL"
 
 # --------------------------------------------------------------------------
 # Handle xgboost / lightgbm: move h2o4gpu copies, then install proper versions
@@ -85,7 +86,7 @@ if [ -s /tmp/requirements_xgb_lgb.txt ]; then
         --upgrade --upgrade-strategy only-if-needed \
         -r /tmp/requirements_xgb_lgb.txt \
         -c req_constraints_deps.txt \
-        -f https://download.pytorch.org/whl/torch_stable.html
+        -f "$PYTORCH_WHEEL_URL"
 fi
 
 # --------------------------------------------------------------------------
@@ -148,13 +149,13 @@ $PYTHON -m pip install --use-deprecated=legacy-resolver \
     --upgrade --upgrade-strategy only-if-needed \
     -r http_server_requirements.txt \
     -c req_constraints_deps.txt \
-    -f https://download.pytorch.org/whl/torch_stable.html
+    -f "$PYTORCH_WHEEL_URL"
 
 $PYTHON -m pip install --use-deprecated=legacy-resolver \
     --upgrade --upgrade-strategy only-if-needed \
     -r tcp_server_requirements.txt \
     -c req_constraints_deps.txt \
-    -f https://download.pytorch.org/whl/torch_stable.html
+    -f "$PYTORCH_WHEEL_URL"
 
 # --------------------------------------------------------------------------
 # Cleanup: remove packages not needed for CPU-only scoring

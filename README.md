@@ -80,6 +80,56 @@ docker build -t h2o-python-scoring-pipeline-docker-base .
 
 > **Nota:** O conteúdo de `scoring-pipeline/` é usado apenas para instalar as dependências compartilhadas durante o build. Ele é removido da imagem final e não precisa ser versionado.
 
+### Build em ambiente corporativo (proxy / SSL interception)
+
+O build precisa de acesso à rede para baixar pacotes RPM (Red Hat/EPEL) e Python (PyPI, PyTorch). Em ambientes corporativos com proxy e/ou SSL interception, use os build args abaixo.
+
+#### Proxy HTTP/HTTPS
+
+```bash
+docker build \
+    --build-arg HTTP_PROXY=http://proxy.empresa.com:8080 \
+    --build-arg HTTPS_PROXY=http://proxy.empresa.com:8080 \
+    --build-arg NO_PROXY=localhost,127.0.0.1,.empresa.com \
+    -t h2o-python-scoring-pipeline-docker-base .
+```
+
+#### SSL interception (certificado CA customizado)
+
+Se o proxy corporativo faz SSL interception, coloque o(s) certificado(s) CA (`.crt` ou `.pem`) no diretório `certs/` antes do build:
+
+```bash
+cp /caminho/para/ca-corporativo.crt certs/
+docker build -t h2o-python-scoring-pipeline-docker-base .
+```
+
+Os certificados são instalados automaticamente no trust store do sistema (`/etc/pki/ca-trust/`) antes de qualquer download. O diretório `certs/` é ignorado pelo git.
+
+#### Mirrors internos (Artifactory, Nexus, etc.)
+
+Para usar repositórios internos em vez dos públicos:
+
+```bash
+docker build \
+    --build-arg PIP_INDEX_URL=https://artifactory.empresa.com/api/pypi/pypi-remote/simple \
+    --build-arg PIP_TRUSTED_HOST=artifactory.empresa.com \
+    --build-arg PYTORCH_WHEEL_URL=https://artifactory.empresa.com/pytorch-wheels/torch_stable.html \
+    --build-arg EPEL_RPM_URL=https://mirror.empresa.com/epel/epel-release-latest-8.noarch.rpm \
+    -t h2o-python-scoring-pipeline-docker-base .
+```
+
+#### Build args disponíveis
+
+| Build arg | Descrição | Padrão |
+|---|---|---|
+| `HTTP_PROXY` | Proxy HTTP | — |
+| `HTTPS_PROXY` | Proxy HTTPS | — |
+| `NO_PROXY` | Hosts que não passam pelo proxy | — |
+| `PIP_INDEX_URL` | URL do índice PyPI (Artifactory, Nexus, etc.) | PyPI público |
+| `PIP_TRUSTED_HOST` | Host confiável para pip (desabilita verificação SSL para este host) | — |
+| `PYTORCH_WHEEL_URL` | URL do índice de wheels do PyTorch | `download.pytorch.org/...` |
+| `EPEL_RPM_URL` | URL do RPM do EPEL | `dl.fedoraproject.org/...` |
+
 ## Uso
 
 ### Iniciar o servidor de scoring
@@ -145,6 +195,7 @@ docker run -p 9090:9090 \
 | `load_pipeline.sh` | Executado no startup do container. Extrai o `.zip` e instala apenas o `.whl` do modelo |
 | `entrypoint.sh` | Entrypoint do container. Coordena o carregamento da pipeline e inicia o servidor HTTP |
 | `scoring-pipeline/` | Pipeline de referência (não versionada — veja [Build da imagem](#build-da-imagem)) |
+| `certs/` | Certificados CA customizados para SSL interception (não versionados) |
 
 ## Limitações
 
